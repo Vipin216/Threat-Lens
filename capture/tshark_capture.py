@@ -9,6 +9,7 @@ class TsharkCapture:
     def stream_packets(self)->Iterator[str]:
         command = [
             "tshark",
+            "l",
             "-i",self.interface,
             "-f","tcp or icmp",
             "-T","fields",

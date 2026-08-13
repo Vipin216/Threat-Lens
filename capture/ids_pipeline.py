@@ -20,6 +20,11 @@ class IDSPipeline:
             if packet is None:
                 continue
 
+
+            expired_flows = self.flow_manager.expire_flows(packet.timestamp)
+            for flow in expired_flows:
+                self._handle_expired_flow(flow)
+
             flow=self.flow_manager.process_packet(packet)
 
 
@@ -32,4 +37,20 @@ class IDSPipeline:
                 f"bytes={flow.byte_count}"
 
             )
+
+
+    @staticmethod
+    def _handle_expired_flow(flow)->None:
+        print(
+            f"\n[FLOW CLOSED] "
+            f"{flow.src_ip}:{flow.src_port}->"
+            f"{flow.dst_ip}:{flow.dst_port}"
+            f"{flow.protocol}"
+        )
+
+        print(
+            f" packets={flow.packet_count} "
+            f"bytes={flow.byte_count} "
+            f"duration={flow.duration:.2f}s"
+        )
     

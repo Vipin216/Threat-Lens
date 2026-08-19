@@ -142,6 +142,12 @@ class IDSPipeline:
             if self.scheduler.should_run(
                 packet.timestamp
             ):
+
+                print(
+                    "\n[DEBUG] "
+                    "Running detection snapshot"
+                )
+
                 self._run_detection_snapshot(
                     packet.timestamp
                 )
@@ -159,23 +165,50 @@ class IDSPipeline:
         timestamp,
     ) -> None:
 
-        for flow in (
+        active_flows = (
             self.flow_manager.get_active_flows()
-        ):
+        )
+
+        print(
+            f"[DEBUG] Active flows: "
+            f"{len(active_flows)}"
+        )
+
+        # -----------------------------------------
+        # Build feature vectors
+        # -----------------------------------------
+
+        for flow in active_flows:
 
             flow_features = (
                 self.flow_feature_extractor
-                .extract_flow_features(flow)
+                .extract_flow_features(
+                    flow
+                )
             )
 
             stats = (
                 self.traffic_window
-                .get_stats(flow.src_ip)
+                .get_stats(
+                    flow.src_ip
+                )
             )
 
             window_features = (
                 self.window_feature_extractor
-                .extract(stats)
+                .extract(
+                    stats
+                )
+            )
+
+            print(
+                f"[DEBUG] {flow.src_ip} | "
+                f"packets="
+                f"{window_features.packet_count} | "
+                f"pps="
+                f"{window_features.packets_per_second:.2f} | "
+                f"icmp_ratio="
+                f"{window_features.icmp_ratio:.2f}"
             )
 
             feature_vector = (
@@ -191,23 +224,48 @@ class IDSPipeline:
                 timestamp,
             )
 
+        # -----------------------------------------
+        # Run detection engine
+        # -----------------------------------------
+
         results = (
-            self.detection_engine.detect(
+            self.detection_engine
+            .detect(
                 self.detection_context
             )
         )
 
+        print(
+            f"[DEBUG] Detection results: "
+            f"{len(results)}"
+        )
+
+        # -----------------------------------------
+        # Process alerts
+        # -----------------------------------------
+
         for result in results:
 
+            print(
+                f"[DEBUG] Detection: "
+                f"{result.source_ip} | "
+                f"score={result.score} | "
+                f"detected={result.detected}"
+            )
+
             alert = (
-                self.alert_manager.process(
+                self.alert_manager
+                .process(
                     result,
                     timestamp,
                 )
             )
 
             if alert is not None:
-                self._print_alert(alert)
+
+                self._print_alert(
+                    alert
+                )
 
     @staticmethod
     def _handle_expired_flow(flow) -> None:
@@ -237,8 +295,12 @@ class IDSPipeline:
         )
 
         print(
-            f" occurrences={alert.occurrence_count}"
+            f" occurrences="
+            f"{alert.occurrence_count}"
         )
 
         for reason in alert.reasons:
-            print(f"  - {reason}")
+
+            print(
+                f"  - {reason}"
+            )

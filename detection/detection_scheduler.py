@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 
 
 class DetectionScheduler:
@@ -8,7 +8,6 @@ class DetectionScheduler:
         self._last_run: datetime | None = None
 
     def should_run(self, current_time: datetime) -> bool:
-
         if self._last_run is None:
             self._last_run = current_time
             return True
@@ -16,6 +15,10 @@ class DetectionScheduler:
         elapsed = (
             current_time - self._last_run
         ).total_seconds()
+
+        if elapsed < 0:
+            self._last_run = current_time
+            return False
 
         if elapsed >= self.interval_seconds:
             self._last_run = current_time

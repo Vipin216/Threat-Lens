@@ -12,7 +12,7 @@ class DetectionContext:
         default_factory=list
     )
 
-    _timestamps: dict[int, datetime] = field(
+    _timestamps: dict[str, datetime] = field(
         default_factory=dict,
         init=False,
     )
@@ -23,9 +23,16 @@ class DetectionContext:
         timestamp: datetime,
     ) -> None:
 
-        self.feature_vectors.append(feature_vector)
+        source_ip = feature_vector.source_ip
 
-        self._timestamps[id(feature_vector)] = timestamp
+        self.feature_vectors = [
+            vector
+            for vector in self.feature_vectors
+            if vector.source_ip != source_ip
+        ]
+
+        self.feature_vectors.append(feature_vector)
+        self._timestamps[source_ip] = timestamp
 
         self._expire_old(timestamp)
 
@@ -60,12 +67,17 @@ class DetectionContext:
 
         for vector in self.feature_vectors:
 
-            timestamp = self._timestamps[id(vector)]
+            timestamp = self._timestamps.get(
+                vector.source_ip
+            )
 
-            if timestamp >= cutoff:
+            if timestamp is not None and timestamp >= cutoff:
                 active_vectors.append(vector)
 
             else:
-                del self._timestamps[id(vector)]
+                self._timestamps.pop(
+                    vector.source_ip,
+                    None,
+                )
 
         self.feature_vectors = active_vectors

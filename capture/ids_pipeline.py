@@ -19,25 +19,19 @@ class IDSPipeline:
 
     def __init__(self, interface: str):
 
-        # -----------------------------------------
-        # Capture / processing
-        # -----------------------------------------
+        
 
         self.capture = TsharkCapture(interface)
         self.parser = PacketParser()
         self.flow_manager = FlowManager()
 
-        # -----------------------------------------
-        # Traffic window
-        # -----------------------------------------
+        
 
         self.traffic_window = TrafficWindow(
             window_seconds=60
         )
 
-        # -----------------------------------------
-        # Feature extraction
-        # -----------------------------------------
+       
 
         self.flow_feature_extractor = (
             FeatureExtractor()
@@ -53,9 +47,7 @@ class IDSPipeline:
             FeatureVectorBuilder()
         )
 
-        # -----------------------------------------
-        # Detection
-        # -----------------------------------------
+        
 
         self.detection_context = (
             DetectionContext(
@@ -70,10 +62,7 @@ class IDSPipeline:
             interval_seconds=5
         )
 
-        # -----------------------------------------
-        # Alert management
-        # -----------------------------------------
-
+        
         self.alert_manager = AlertManager(
             stale_after_seconds=60
         )
@@ -92,16 +81,10 @@ class IDSPipeline:
             if packet is None:
                 continue
 
-            # -------------------------------------
-            # Update source traffic window
-            # -------------------------------------
-
+            
             self.traffic_window.add_packet(packet)
 
-            # -------------------------------------
-            # Expire inactive flows
-            # -------------------------------------
-
+           
             expired_flows = (
                 self.flow_manager.expire_flows(
                     packet.timestamp
@@ -111,9 +94,7 @@ class IDSPipeline:
             for flow in expired_flows:
                 self._handle_expired_flow(flow)
 
-            # -------------------------------------
-            # Update current flow
-            # -------------------------------------
+            
 
             flow = (
                 self.flow_manager.process_packet(
@@ -121,9 +102,7 @@ class IDSPipeline:
                 )
             )
 
-            # -------------------------------------
-            # Debug flow output
-            # -------------------------------------
+           
 
             #print(
              #   f"[FLOW] "
@@ -134,13 +113,7 @@ class IDSPipeline:
                 #f"bytes={flow.byte_count}"
             #)
 
-            # -------------------------------------
-            # Periodic detection snapshot
-            #
-            # IMPORTANT:
-            # Use wall-clock time for scheduling
-            # live IDS detection.
-            # -------------------------------------
+            
 
             current_time = datetime.now()
 
@@ -157,9 +130,7 @@ class IDSPipeline:
                     packet.timestamp
                 )
 
-            # -------------------------------------
-            # Resolve stale alerts
-            # -------------------------------------
+            
 
             self.alert_manager.resolve_stale_alerts(
                 packet.timestamp
@@ -179,9 +150,7 @@ class IDSPipeline:
             f"{len(active_flows)}"
         )
 
-        # -----------------------------------------
-        # Build feature vectors
-        # -----------------------------------------
+       
 
         for flow in active_flows:
 
@@ -224,10 +193,7 @@ class IDSPipeline:
                 f"{window_features.icmp_ratio:.2f}"
             )
 
-        # -----------------------------------------
-        # Run detection
-        # -----------------------------------------
-
+        
         results = (
             self.detection_engine.detect(
                 self.detection_context
@@ -239,9 +205,7 @@ class IDSPipeline:
             f"{len(results)}"
         )
 
-        # -----------------------------------------
-        # Process alerts
-        # -----------------------------------------
+       
 
         for result in results:
 

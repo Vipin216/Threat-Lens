@@ -12,3 +12,4 @@ class Packet:
     protocol:str
     length:int
     tcp_flags:str | None =None
+    icmp_type: int | None = None

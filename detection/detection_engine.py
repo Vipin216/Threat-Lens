@@ -4,10 +4,7 @@ from detection.detection_result import DetectionResult
 
 class DetectionEngine:
 
-    def detect(
-        self,
-        context: DetectionContext,
-    ) -> list[DetectionResult]:
+    def detect(self, context: DetectionContext) -> list[DetectionResult]:
 
         results = []
 
@@ -27,11 +24,7 @@ class DetectionEngine:
 
         return results
 
-    def _analyze_source(
-        self,
-        source_ip,
-        vectors,
-    ) -> DetectionResult:
+    def _analyze_source(self, source_ip, vectors) -> DetectionResult:
 
         score = 0
         reasons = []
@@ -44,64 +37,63 @@ class DetectionEngine:
                 source_ip=source_ip,
             )
 
-        # Use the latest window context.
         latest = vectors[-1]
-
-        # -----------------------------------------
-        # Port scanning
-        # -----------------------------------------
 
         if latest.unique_destination_ports >= 10:
             score += 40
-            reasons.append("High number of unique destination ports")
+            reasons.append(
+                "High number of unique destination ports"
+            )
 
-
-
-
-        if (latest.window_syn_ratio >= 0.7 and latest.unique_destination_ports >= 5):
+        if (
+            latest.window_syn_ratio >= 0.7
+            and latest.unique_destination_ports >= 5
+        ):
             score += 25
-            reasons.append("High SYN ratio across multiple ports")
+            reasons.append(
+                "High SYN ratio across multiple ports"
+            )
 
-
-
-        # -----------------------------------------
-        # High traffic volume
-        # -----------------------------------------
-
-        if latest.window_packets_per_second >= 2:
-            score += 20
-            reasons.append("High packet rate")
-
-       
-        if (latest.syns_per_second >= 2 and latest.window_syn_ratio >= 0.7):
+        if (
+            latest.syns_per_second >= 2
+            and latest.window_syn_ratio >= 0.7
+        ):
             score += 30
+            reasons.append(
+                "High SYN connection-attempt rate"
+            )
 
-            reasons.append("High SYN connection-attempt rate")
-
-
-        if (latest.syns_per_second >= 2 and latest.window_syn_ratio >= 0.7 and latest.unique_destination_ports >= 10):
+        if (
+            latest.syns_per_second >= 2
+            and latest.window_syn_ratio >= 0.7
+            and latest.unique_destination_ports >= 10
+        ):
             score += 30
+            reasons.append(
+                "High-rate SYN activity across multiple ports"
+            )
 
-            reasons.append("High-rate SYN activity across multiple ports")
-
-
-
-            
         if latest.sensitive_port_count > 0:
             score += 20
-            reasons.append(f"Traffic to {latest.sensitive_port_count} sensitive port(s)")
-
+            reasons.append(
+                f"Traffic to {latest.sensitive_port_count} sensitive port(s)"
+            )
 
         if latest.sensitive_port_count >= 2:
             score += 20
-            reasons.append("Multiple sensitive services targeted")
+            reasons.append(
+                "Multiple sensitive services targeted"
+            )
 
-
-        if (latest.window_icmp_ratio >= 0.8 and latest.window_packets_per_second >= 2):
+        if (
+            latest.window_icmp_ratio >= 0.8
+            and latest.window_icmp_request_ratio >= 0.7
+            and latest.window_packets_per_second >= 2
+        ):
             score += 50
-
-            reasons.append("High ICMP traffic rate")
-            
+            reasons.append(
+                "High ICMP echo-request traffic rate"
+            )
 
         score = min(score, 100)
 

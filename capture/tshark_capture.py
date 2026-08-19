@@ -23,6 +23,7 @@ class TsharkCapture:
             "-e","tcp.dstport",
             "-e","frame.len",
             "-e","tcp.flags",
+            "-e", "icmp.type",
         ]
 
         process = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,bufsize=1,)

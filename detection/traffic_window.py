@@ -20,6 +20,8 @@ class WindowStats:
     syn_count:int
     ack_count:int
     rst_count:int
+    icmp_request_count: int
+    icmp_reply_count: int
 
 
 
@@ -42,6 +44,8 @@ class TrafficWindow:
                 "syn_count":0,
                 "ack_count":0,
                 "rst_count":0,
+                "icmp_request_count": 0,
+                "icmp_reply_count": 0,
             }
         )
 
@@ -63,6 +67,13 @@ class TrafficWindow:
 
         if packet.protocol == "ICMP":
             data["icmp_packet_count"] += 1
+
+            if packet.icmp_type == 8:
+                data["icmp_request_count"] += 1
+
+            elif packet.icmp_type == 0:
+                data["icmp_reply_count"] += 1
+
         elif packet.protocol == "TCP":
             data["tcp_packet_count"] += 1
 
@@ -99,6 +110,8 @@ class TrafficWindow:
             syn_count=data["syn_count"],
             ack_count=data["ack_count"],
             rst_count = data["rst_count"],
+            icmp_request_count=data["icmp_request_count"],
+            icmp_reply_count=data["icmp_reply_count"],
 
         )
 
@@ -136,6 +149,12 @@ class TrafficWindow:
 
         if packet.protocol == "ICMP":
             data["icmp_packet_count"] -= 1
+
+        if packet.icmp_type == 8:
+            data["icmp_request_count"] -= 1
+
+        elif packet.icmp_type == 0:
+            data["icmp_reply_count"] -= 1
 
         elif packet.protocol == "TCP":
             data["tcp_packet_count"] -= 1

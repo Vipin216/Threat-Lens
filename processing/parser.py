@@ -8,7 +8,7 @@ class PacketParser:
         parts = line.split("|")
 
 
-        if len(parts)!=8:
+        if len(parts)!=9:
             return None
 
         (
@@ -20,6 +20,7 @@ class PacketParser:
             dst_port,
             length,
             tcp_flags,
+            icmp_type,
         )=parts
 
         try:
@@ -36,6 +37,7 @@ class PacketParser:
             protocol=self._normalize_protocol(protocol),
             length=int(length) if length else 0,
             tcp_flags=tcp_flags if tcp_flags else None,
+            icmp_type=int(icmp_type) if icmp_type else None,
         )
 
     @staticmethod

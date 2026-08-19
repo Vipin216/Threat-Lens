@@ -6,7 +6,8 @@ from detection.window_features import WindowFeatures
 
 @dataclass
 class FeatureVector:
-    source_ip:str
+    source_ip: str
+
     flow_packet_count: int
     flow_byte_count: int
     flow_duration: float
@@ -18,10 +19,6 @@ class FeatureVector:
     flow_rst_ratio: float
     flow_fin_ratio: float
 
-
-
-
-   
     window_packet_count: int
     window_byte_count: int
     window_flow_count: int
@@ -29,6 +26,7 @@ class FeatureVector:
     unique_destination_ips: int
     unique_destination_ports: int
     sensitive_port_count: int
+
     window_packets_per_second: float
     window_bytes_per_second: float
     window_flows_per_second: float
@@ -36,11 +34,12 @@ class FeatureVector:
     ports_per_second: float
     ips_per_second: float
 
-
     window_icmp_packet_count: int
+    window_icmp_request_count: int
+    window_icmp_reply_count: int
     window_tcp_packet_count: int
     window_icmp_ratio: float
-
+    window_icmp_request_ratio: float
 
     window_syn_ratio: float
     window_ack_ratio: float
@@ -54,14 +53,15 @@ class FeatureVectorBuilder:
         flow_features: FlowFeatures,
         window_features: WindowFeatures,
     ) -> FeatureVector:
+
         if flow_features.source_ip != window_features.source_ip:
             raise ValueError(
                 "Flow and window source IPs must match"
-    )
+            )
 
         return FeatureVector(
-            # Flow
             source_ip=flow_features.source_ip,
+
             flow_packet_count=flow_features.packet_count,
             flow_byte_count=flow_features.byte_count,
             flow_duration=flow_features.duration,
@@ -73,7 +73,6 @@ class FeatureVectorBuilder:
             flow_rst_ratio=flow_features.rst_ratio,
             flow_fin_ratio=flow_features.fin_ratio,
 
-            # Window
             window_packet_count=window_features.packet_count,
             window_byte_count=window_features.byte_count,
             window_flow_count=window_features.flow_count,
@@ -105,13 +104,30 @@ class FeatureVectorBuilder:
             ports_per_second=window_features.ports_per_second,
             ips_per_second=window_features.ips_per_second,
 
+            window_icmp_packet_count=(
+                window_features.icmp_packet_count
+            ),
 
+            window_icmp_request_count=(
+                window_features.icmp_request_count
+            ),
 
-            window_icmp_packet_count=(window_features.icmp_packet_count),
-            window_tcp_packet_count=(window_features.tcp_packet_count),
-            window_icmp_ratio=(window_features.icmp_ratio),
+            window_icmp_reply_count=(
+                window_features.icmp_reply_count
+            ),
 
-            syns_per_second=(window_features.syns_per_second),
+            window_tcp_packet_count=(
+                window_features.tcp_packet_count
+            ),
+
+            window_icmp_ratio=(
+                window_features.icmp_ratio
+            ),
+
+            window_icmp_request_ratio=(
+                window_features.icmp_request_ratio
+            ),
+
             window_syn_ratio=window_features.syn_ratio,
             window_ack_ratio=window_features.ack_ratio,
             window_rst_ratio=window_features.rst_ratio,

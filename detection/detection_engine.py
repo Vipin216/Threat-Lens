@@ -191,6 +191,7 @@ class DetectionEngine:
         # simply because it has a high packet rate.
         detected = score > 0
 
+
         return DetectionResult(
             detected=detected,
             severity=severity,

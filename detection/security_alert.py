@@ -12,9 +12,7 @@ class SecurityAlert:
     first_seen: datetime
     last_seen: datetime
     occurrence_count: int = 1
-
     reasons: list[str] = field(
         default_factory=list
     )
-
     status: str = "OPEN"

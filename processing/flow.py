@@ -1,68 +1,82 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-
 from processing.packet import Packet
+
 
 @dataclass
 class Flow:
-    src_ip:str
-    src_port:int | None
-    dst_ip:str
-    dst_port:int| None
-    protocol:str
+    src_ip: str
+    src_port: int | None
+    dst_ip: str
+    dst_port: int | None
+    protocol: str
 
-    start_time:datetime
-    last_seen:datetime
+    start_time: datetime
+    last_seen: datetime
 
-    packet_count: int=0
-    byte_count:int=0
-    syn_count:int=0
-    ack_count:int=0
-    rst_count:int=0
-    fin_count:int=0
+    packet_count: int = 0
+    byte_count: int = 0
+    syn_count: int = 0
+    ack_count: int = 0
+    rst_count: int = 0
+    fin_count: int = 0
 
-
-    def add_packet(self,packet:Packet)->None:
-        self.packet_count+=1
-        self.byte_count+=packet.length
-        self.last_seen=packet.timestamp
-
+    def add_packet(self, packet: Packet) -> None:
+        self.packet_count += 1
+        self.byte_count += packet.length
+        self.last_seen = packet.timestamp
 
         if packet.tcp_flags:
-            flags=packet.tcp_flags.upper()
+            flags = packet.tcp_flags.upper()
 
-            if "S" in flags:
-                self.syn_count+=1
+            if flags.startswith("0X"):
+                try:
+                    flag_value = int(flags, 16)
+                except ValueError:
+                    flag_value = 0
 
-            if "A" in flags:
-                self.ack_count+=1
+                if flag_value & 0x002:
+                    self.syn_count += 1
 
-            if "R" in flags:
-                self.rst_count+=1
+                if flag_value & 0x010:
+                    self.ack_count += 1
 
-            if "F" in flags:
-                self.fin_count+=1
+                if flag_value & 0x004:
+                    self.rst_count += 1
 
+                if flag_value & 0x001:
+                    self.fin_count += 1
 
+            else:
+                if "S" in flags:
+                    self.syn_count += 1
+
+                if "A" in flags:
+                    self.ack_count += 1
+
+                if "R" in flags:
+                    self.rst_count += 1
+
+                if "F" in flags:
+                    self.fin_count += 1
 
     @property
-    def duration(self)->float:
-        return (self.last_seen - self.start_time).total_seconds()
+    def duration(self) -> float:
+        return (
+            self.last_seen - self.start_time
+        ).total_seconds()
 
     @property
-    def packets_per_second(self)->float:
-        if self.duration<=0:
+    def packets_per_second(self) -> float:
+        if self.duration <= 0:
             return float(self.packet_count)
 
         return self.packet_count / self.duration
 
-
     @property
-    def bytes_per_second(self)->float:
-        if self.duration<=0:
+    def bytes_per_second(self) -> float:
+        if self.duration <= 0:
             return float(self.byte_count)
 
-        return self.byte_count/self.duration
-
-    
+        return self.byte_count / self.duration

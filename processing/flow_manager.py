@@ -1,18 +1,18 @@
 from datetime import timedelta
+
 from processing.packet import Packet
 from processing.flow import Flow
 
 
-
 class FlowManager:
-    def __init__(self,timeout_seconds:int=60):
-        self.timeout_seconds = timeout_seconds
-        self.flows:dict[tuple,Flow]={}
 
+    def __init__(self, timeout_seconds: int = 60):
+        self.timeout_seconds = timeout_seconds
+        self.flows: dict[tuple, Flow] = {}
 
     @staticmethod
-    def _flow_key(packet: Packet)->tuple:
-        return(
+    def _flow_key(packet: Packet) -> tuple:
+        return (
             packet.src_ip,
             packet.src_port,
             packet.dst_ip,
@@ -20,11 +20,11 @@ class FlowManager:
             packet.protocol,
         )
 
-    def process_packet(self,packet:Packet)->Flow:
-        key=self._flow_key(packet)
+    def process_packet(self, packet: Packet) -> Flow:
+        key = self._flow_key(packet)
 
         if key not in self.flows:
-            self.flows[key]=Flow(
+            self.flows[key] = Flow(
                 src_ip=packet.src_ip,
                 src_port=packet.src_port,
                 dst_ip=packet.dst_ip,
@@ -34,24 +34,29 @@ class FlowManager:
                 last_seen=packet.timestamp,
             )
 
-        flow=self.flows[key]
+        flow = self.flows[key]
+
         flow.add_packet(packet)
 
         return flow
 
+    def expire_flows(
+        self,
+        current_time,
+    ) -> list[Flow]:
 
+        expired = []
 
-    def expire_flows(self,current_time)->list[Flow]:
-        expired=[]
+        for key, flow in list(self.flows.items()):
 
-        for key,flow in list(self.flows.items()):
-            if current_time - flow.last_seen > timedelta(seconds=self.timeout_seconds):
+            if (
+                current_time - flow.last_seen
+                > timedelta(seconds=self.timeout_seconds)
+            ):
                 expired.append(flow)
                 del self.flows[key]
 
         return expired
-
-
 
     def get_active_flows(self) -> list[Flow]:
         return list(self.flows.values())

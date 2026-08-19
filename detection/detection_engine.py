@@ -4,14 +4,19 @@ from detection.detection_result import DetectionResult
 
 class DetectionEngine:
 
-    def detect(self, context: DetectionContext) -> list[DetectionResult]:
+    def detect(
+        self,
+        context: DetectionContext,
+    ) -> list[DetectionResult]:
 
         results = []
 
         for source_ip in context.get_all_sources():
 
-            vectors = context.get_source_vectors(
-                source_ip
+            vectors = (
+                context.get_source_vectors(
+                    source_ip
+                )
             )
 
             result = self._analyze_source(
@@ -24,7 +29,11 @@ class DetectionEngine:
 
         return results
 
-    def _analyze_source(self, source_ip, vectors) -> DetectionResult:
+    def _analyze_source(
+        self,
+        source_ip,
+        vectors,
+    ) -> DetectionResult:
 
         score = 0
         reasons = []
@@ -35,6 +44,7 @@ class DetectionEngine:
                 severity="NONE",
                 score=0,
                 source_ip=source_ip,
+                reasons=[],
             )
 
         latest = vectors[-1]
@@ -52,6 +62,12 @@ class DetectionEngine:
             score += 25
             reasons.append(
                 "High SYN ratio across multiple ports"
+            )
+
+        if latest.window_packets_per_second >= 2:
+            score += 20
+            reasons.append(
+                "High packet rate"
             )
 
         if (
@@ -76,7 +92,9 @@ class DetectionEngine:
         if latest.sensitive_port_count > 0:
             score += 20
             reasons.append(
-                f"Traffic to {latest.sensitive_port_count} sensitive port(s)"
+                f"Traffic to "
+                f"{latest.sensitive_port_count} "
+                f"sensitive port(s)"
             )
 
         if latest.sensitive_port_count >= 2:
@@ -99,10 +117,13 @@ class DetectionEngine:
 
         if score >= 70:
             severity = "HIGH"
+
         elif score >= 40:
             severity = "MEDIUM"
+
         elif score > 0:
             severity = "LOW"
+
         else:
             severity = "NONE"
 

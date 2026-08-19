@@ -6,55 +6,101 @@ from detection.security_alert import SecurityAlert
 
 
 class AlertManager:
-    def __init__(self, stale_after_seconds: int = 60):
-        self.stale_after_seconds = stale_after_seconds
+
+    def __init__(
+        self,
+        stale_after_seconds: int = 60,
+    ):
+        self.stale_after_seconds = (
+            stale_after_seconds
+        )
 
         self._alerts: dict[
             tuple[str, str],
             SecurityAlert,
         ] = {}
 
-    def process(self, result: DetectionResult, timestamp: datetime) -> SecurityAlert | None:
+    def process(
+        self,
+        result: DetectionResult,
+        timestamp: datetime,
+    ) -> SecurityAlert | None:
+
         if not result.detected:
             return None
 
-        key = (result.source_ip, self._get_detection_type(result))
+        key = (
+            result.source_ip,
+            self._get_detection_type(result),
+        )
+
         existing_alert = self._alerts.get(key)
 
         if existing_alert is None:
-            alert = self._create_alert(result, timestamp)
+
+            alert = self._create_alert(
+                result,
+                timestamp,
+            )
+
             self._alerts[key] = alert
+
             return alert
 
         if existing_alert.status == "RESOLVED":
-            alert = self._create_alert(result, timestamp)
+
+            alert = self._create_alert(
+                result,
+                timestamp,
+            )
+
             self._alerts[key] = alert
+
             return alert
 
-        self._update_alert(existing_alert, result, timestamp)
+        self._update_alert(
+            existing_alert,
+            result,
+            timestamp,
+        )
+
         return None
 
-    def resolve_stale_alerts(self,current_time: datetime,) -> None:
+    def resolve_stale_alerts(
+        self,
+        current_time: datetime,
+    ) -> None:
 
         for alert in self._alerts.values():
 
             if alert.status != "OPEN":
                 continue
 
-            elapsed = (current_time - alert.last_seen).total_seconds()
+            elapsed = (
+                current_time
+                - alert.last_seen
+            ).total_seconds()
 
-            if elapsed >= self.stale_after_seconds:
+            if (
+                elapsed
+                >= self.stale_after_seconds
+            ):
                 alert.status = "RESOLVED"
 
-
-
-
-    def _create_alert(self,result: DetectionResult,timestamp: datetime) -> SecurityAlert:
+    def _create_alert(
+        self,
+        result: DetectionResult,
+        timestamp: datetime,
+    ) -> SecurityAlert:
 
         return SecurityAlert(
-            alert_id=f"TL-{uuid4().hex[:8].upper()}",
+            alert_id=(
+                f"TL-{uuid4().hex[:8].upper()}"
+            ),
             source_ip=result.source_ip,
-            detection_type=self._get_detection_type(result),
+            detection_type=(
+                self._get_detection_type(result)
+            ),
             severity=result.severity,
             risk_score=result.score,
             first_seen=timestamp,
@@ -64,9 +110,12 @@ class AlertManager:
             status="OPEN",
         )
 
-
-
-    def _update_alert(self,alert: SecurityAlert,result: DetectionResult,timestamp: datetime) -> None:
+    def _update_alert(
+        self,
+        alert: SecurityAlert,
+        result: DetectionResult,
+        timestamp: datetime,
+    ) -> None:
 
         alert.last_seen = timestamp
 
@@ -83,11 +132,14 @@ class AlertManager:
         )
 
         for reason in result.reasons:
+
             if reason not in alert.reasons:
                 alert.reasons.append(reason)
 
     @staticmethod
-    def _get_detection_type(result: DetectionResult) -> str:
+    def _get_detection_type(
+        result: DetectionResult,
+    ) -> str:
 
         if result.reasons:
             return result.reasons[0]
@@ -95,7 +147,10 @@ class AlertManager:
         return "Network Anomaly"
 
     @staticmethod
-    def _higher_severity(current: str,new: str,) -> str:
+    def _higher_severity(
+        current: str,
+        new: str,
+    ) -> str:
 
         levels = {
             "NONE": 0,
@@ -105,10 +160,18 @@ class AlertManager:
             "CRITICAL": 4,
         }
 
-        if levels.get(new, 0) > levels.get(current, 0):
+        if levels.get(new, 0) > levels.get(
+            current,
+            0,
+        ):
             return new
 
         return current
 
-    def get_alerts(self) -> list[SecurityAlert]:
-        return list(self._alerts.values())
+    def get_alerts(
+        self,
+    ) -> list[SecurityAlert]:
+
+        return list(
+            self._alerts.values()
+        )

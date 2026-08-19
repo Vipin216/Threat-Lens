@@ -24,22 +24,33 @@ class IDSPipeline:
             window_seconds=60
         )
 
-        self.flow_feature_extractor = FeatureExtractor()
-
-        self.window_feature_extractor = WindowFeatureExtractor(
-            window_seconds=60
+        self.flow_feature_extractor = (
+            FeatureExtractor()
         )
 
-        self.feature_vector_builder = FeatureVectorBuilder()
-
-        self.detection_context = DetectionContext(
-            window_seconds=60
+        self.window_feature_extractor = (
+            WindowFeatureExtractor(
+                window_seconds=60
+            )
         )
 
-        self.detection_engine = DetectionEngine()
+        self.feature_vector_builder = (
+            FeatureVectorBuilder()
+        )
+
+        self.detection_context = (
+            DetectionContext(
+                window_seconds=60
+            )
+        )
+
+        self.detection_engine = (
+            DetectionEngine()
+        )
 
         self.scheduler = DetectionScheduler(
-            interval_seconds=5
+            interval_seconds=1,
+            packet_threshold=50,
         )
 
         self.alert_manager = AlertManager(
@@ -47,37 +58,52 @@ class IDSPipeline:
         )
 
     def run(self) -> None:
+
         print(
             f"[+] Starting IDS capture on "
             f"{self.capture.interface}"
         )
 
-        for raw_line in self.capture.stream_packets():
+        for raw_line in (
+            self.capture.stream_packets()
+        ):
 
-            packet = self.parser.parse(raw_line)
+            packet = self.parser.parse(
+                raw_line
+            )
 
             if packet is None:
                 continue
 
-            self.traffic_window.add_packet(packet)
+            self.traffic_window.add_packet(
+                packet
+            )
 
-            self.flow_manager.process_packet(packet)
+            self.flow_manager.process_packet(
+                packet
+            )
 
-            if self.scheduler.should_run(packet.timestamp):
+            if self.scheduler.should_run():
+
                 print(
-                    "\n[DEBUG] Running detection snapshot"
+                    "\n[DEBUG] Running "
+                    "detection snapshot"
                 )
 
                 self._run_detection_snapshot(
                     packet.timestamp
                 )
 
-            expired_flows = self.flow_manager.expire_flows(
-                packet.timestamp
+            expired_flows = (
+                self.flow_manager.expire_flows(
+                    packet.timestamp
+                )
             )
 
             for flow in expired_flows:
-                self._handle_expired_flow(flow)
+                self._handle_expired_flow(
+                    flow
+                )
 
             self.alert_manager.resolve_stale_alerts(
                 packet.timestamp
@@ -89,7 +115,8 @@ class IDSPipeline:
     ) -> None:
 
         source_ips = (
-            self.traffic_window.get_active_sources()
+            self.traffic_window
+            .get_active_sources()
         )
 
         print(
@@ -99,19 +126,22 @@ class IDSPipeline:
 
         for source_ip in source_ips:
 
-            stats = self.traffic_window.get_stats(
-                source_ip
+            stats = (
+                self.traffic_window
+                .get_stats(source_ip)
             )
 
             window_features = (
-                self.window_feature_extractor.extract(
-                    stats
-                )
+                self.window_feature_extractor
+                .extract(stats)
             )
 
             active_flows = [
                 flow
-                for flow in self.flow_manager.get_active_flows()
+                for flow in (
+                    self.flow_manager
+                    .get_active_flows()
+                )
                 if flow.src_ip == source_ip
             ]
 
@@ -120,7 +150,7 @@ class IDSPipeline:
 
             latest_flow = max(
                 active_flows,
-                key=lambda flow: flow.last_seen
+                key=lambda flow: flow.last_seen,
             )
 
             flow_features = (
@@ -133,10 +163,14 @@ class IDSPipeline:
             print(
                 f"[DEBUG] {source_ip} | "
                 f"packets={stats.packet_count} | "
-                f"pps={window_features.packets_per_second:.2f} | "
-                f"ports={window_features.unique_destination_ports} | "
-                f"syn_ratio={window_features.syn_ratio:.2f} | "
-                f"syns/sec={window_features.syns_per_second:.2f}"
+                f"pps="
+                f"{window_features.packets_per_second:.2f} | "
+                f"ports="
+                f"{window_features.unique_destination_ports} | "
+                f"syn_ratio="
+                f"{window_features.syn_ratio:.2f} | "
+                f"syns/sec="
+                f"{window_features.syns_per_second:.2f}"
             )
 
             feature_vector = (
@@ -151,8 +185,10 @@ class IDSPipeline:
                 timestamp,
             )
 
-        results = self.detection_engine.detect(
-            self.detection_context
+        results = (
+            self.detection_engine.detect(
+                self.detection_context
+            )
         )
 
         print(
@@ -169,9 +205,11 @@ class IDSPipeline:
                 f"detected={result.detected}"
             )
 
-            alert = self.alert_manager.process(
-                result,
-                timestamp,
+            alert = (
+                self.alert_manager.process(
+                    result,
+                    timestamp,
+                )
             )
 
             if alert is not None:
@@ -179,6 +217,7 @@ class IDSPipeline:
 
     @staticmethod
     def _handle_expired_flow(flow) -> None:
+
         print(
             f"\n[FLOW CLOSED] "
             f"{flow.src_ip}:{flow.src_port}->"
@@ -194,6 +233,7 @@ class IDSPipeline:
 
     @staticmethod
     def _print_alert(alert) -> None:
+
         print(
             "\n[ALERT] "
             f"{alert.severity} | "
@@ -203,10 +243,12 @@ class IDSPipeline:
         )
 
         print(
-            f" occurrences={alert.occurrence_count}"
+            f" occurrences="
+            f"{alert.occurrence_count}"
         )
 
         for reason in alert.reasons:
+
             print(
                 f"  - {reason}"
             )

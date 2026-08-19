@@ -27,7 +27,6 @@ class TrafficWindow:
 
     def __init__(self, window_seconds: int = 60):
         self.window_seconds = window_seconds
-
         self._packets = deque()
 
         self._source_data = defaultdict(
@@ -48,7 +47,6 @@ class TrafficWindow:
         )
 
     def add_packet(self, packet: Packet) -> None:
-
         self._packets.append(packet)
 
         data = self._source_data[packet.src_ip]
@@ -62,7 +60,6 @@ class TrafficWindow:
         data["byte_count"] += packet.length
 
         if packet.protocol == "ICMP":
-
             data["icmp_packet_count"] += 1
 
             if packet.icmp_type == 8:
@@ -72,7 +69,6 @@ class TrafficWindow:
                 data["icmp_reply_count"] += 1
 
         elif packet.protocol == "TCP":
-
             data["tcp_packet_count"] += 1
 
         flow_key = (
@@ -85,16 +81,42 @@ class TrafficWindow:
 
         data["flow_keys"][flow_key] += 1
 
-        self._update_tcp_flags(data, packet)
+        self._update_tcp_flags(
+            data,
+            packet,
+        )
 
-        self._expire_old_packets(packet.timestamp)
+        self._expire_old_packets(
+            packet.timestamp
+        )
 
     def get_active_sources(self) -> set[str]:
         return set(self._source_data.keys())
 
-    def get_stats(self, source_ip: str) -> WindowStats:
+    def get_stats(
+        self,
+        source_ip: str,
+    ) -> WindowStats:
 
-        data = self._source_data[source_ip]
+        data = self._source_data.get(source_ip)
+
+        if data is None:
+            return WindowStats(
+                source_ip=source_ip,
+                packet_count=0,
+                byte_count=0,
+                flow_count=0,
+                unique_destination_ips=0,
+                unique_destination_ports=0,
+                destination_ports=set(),
+                icmp_packet_count=0,
+                tcp_packet_count=0,
+                syn_count=0,
+                ack_count=0,
+                rst_count=0,
+                icmp_request_count=0,
+                icmp_reply_count=0,
+            )
 
         return WindowStats(
             source_ip=source_ip,
@@ -110,13 +132,21 @@ class TrafficWindow:
             destination_ports=set(
                 data["destination_ports"].keys()
             ),
-            icmp_packet_count=data["icmp_packet_count"],
-            tcp_packet_count=data["tcp_packet_count"],
+            icmp_packet_count=data[
+                "icmp_packet_count"
+            ],
+            tcp_packet_count=data[
+                "tcp_packet_count"
+            ],
             syn_count=data["syn_count"],
             ack_count=data["ack_count"],
             rst_count=data["rst_count"],
-            icmp_request_count=data["icmp_request_count"],
-            icmp_reply_count=data["icmp_reply_count"],
+            icmp_request_count=data[
+                "icmp_request_count"
+            ],
+            icmp_reply_count=data[
+                "icmp_reply_count"
+            ],
         )
 
     def _expire_old_packets(
@@ -126,7 +156,9 @@ class TrafficWindow:
 
         cutoff = (
             current_time
-            - timedelta(seconds=self.window_seconds)
+            - timedelta(
+                seconds=self.window_seconds
+            )
         )
 
         while (
@@ -142,12 +174,19 @@ class TrafficWindow:
         packet: Packet,
     ) -> None:
 
-        data = self._source_data[packet.src_ip]
+        data = self._source_data.get(
+            packet.src_ip
+        )
+
+        if data is None:
+            return
 
         data["packet_count"] -= 1
         data["byte_count"] -= packet.length
 
-        data["destination_ips"][packet.dst_ip] -= 1
+        data["destination_ips"][
+            packet.dst_ip
+        ] -= 1
 
         if packet.dst_port is not None:
             data["destination_ports"][
@@ -162,10 +201,11 @@ class TrafficWindow:
             packet.protocol,
         )
 
-        data["flow_keys"][flow_key] -= 1
+        data["flow_keys"][
+            flow_key
+        ] -= 1
 
         if packet.protocol == "ICMP":
-
             data["icmp_packet_count"] -= 1
 
             if packet.icmp_type == 8:
@@ -175,7 +215,6 @@ class TrafficWindow:
                 data["icmp_reply_count"] -= 1
 
         elif packet.protocol == "TCP":
-
             data["tcp_packet_count"] -= 1
 
         self._update_tcp_flags(
@@ -185,8 +224,9 @@ class TrafficWindow:
         )
 
         if (
-            data["destination_ips"][packet.dst_ip]
-            <= 0
+            data["destination_ips"][
+                packet.dst_ip
+            ] <= 0
         ):
             del data["destination_ips"][
                 packet.dst_ip
@@ -202,8 +242,14 @@ class TrafficWindow:
                 packet.dst_port
             ]
 
-        if data["flow_keys"][flow_key] <= 0:
-            del data["flow_keys"][flow_key]
+        if (
+            data["flow_keys"][
+                flow_key
+            ] <= 0
+        ):
+            del data["flow_keys"][
+                flow_key
+            ]
 
         if data["packet_count"] <= 0:
             del self._source_data[
@@ -220,15 +266,35 @@ class TrafficWindow:
         if packet.protocol != "TCP":
             return
 
-        flags = packet.tcp_flags or ""
+        flags = (
+            packet.tcp_flags or ""
+        ).upper()
+
+        if flags.startswith("0X"):
+            try:
+                flag_value = int(
+                    flags,
+                    16,
+                )
+            except ValueError:
+                flag_value = 0
+
+            syn = bool(flag_value & 0x002)
+            ack = bool(flag_value & 0x010)
+            rst = bool(flag_value & 0x004)
+
+        else:
+            syn = "S" in flags
+            ack = "A" in flags
+            rst = "R" in flags
 
         multiplier = -1 if remove else 1
 
-        if "S" in flags:
+        if syn:
             data["syn_count"] += multiplier
 
-        if "A" in flags:
+        if ack:
             data["ack_count"] += multiplier
 
-        if "R" in flags:
+        if rst:
             data["rst_count"] += multiplier

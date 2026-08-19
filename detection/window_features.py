@@ -48,12 +48,19 @@ class WindowFeatureExtractor:
     def __init__(self, window_seconds: int = 60):
         self.window_seconds = window_seconds
 
-    def extract(self, stats: WindowStats) -> WindowFeatures:
+    def extract(
+        self,
+        stats: WindowStats,
+    ) -> WindowFeatures:
 
-        seconds = max(self.window_seconds, 1)
+        seconds = max(
+            self.window_seconds,
+            1,
+        )
 
         sensitive_port_count = len(
-            set(stats.destination_ports) & SENSITIVE_PORTS
+            set(stats.destination_ports)
+            & SENSITIVE_PORTS
         )
 
         packets_per_second = (
@@ -69,11 +76,13 @@ class WindowFeatureExtractor:
         )
 
         ports_per_second = (
-            stats.unique_destination_ports / seconds
+            stats.unique_destination_ports
+            / seconds
         )
 
         ips_per_second = (
-            stats.unique_destination_ips / seconds
+            stats.unique_destination_ips
+            / seconds
         )
 
         syns_per_second = (

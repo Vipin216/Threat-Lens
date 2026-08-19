@@ -67,7 +67,9 @@ class FeatureVectorBuilder:
             flow_duration=flow_features.duration,
             flow_packets_per_second=flow_features.packets_per_second,
             flow_bytes_per_second=flow_features.bytes_per_second,
-            syns_per_second=flow_features.syns_per_second,
+
+            syns_per_second=window_features.syns_per_second,
+
             flow_syn_ratio=flow_features.syn_ratio,
             flow_ack_ratio=flow_features.ack_ratio,
             flow_rst_ratio=flow_features.rst_ratio,

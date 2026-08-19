@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from capture.tshark_capture import TsharkCapture
 
 from processing.flow_manager import FlowManager
@@ -61,10 +63,9 @@ class IDSPipeline:
             )
         )
 
-        self.detection_engine = (
-            DetectionEngine()
-        )
+        self.detection_engine = DetectionEngine()
 
+        # Detection runs every 5 seconds
         self.scheduler = DetectionScheduler(
             interval_seconds=5
         )
@@ -84,13 +85,9 @@ class IDSPipeline:
             f"{self.capture.interface}"
         )
 
-        for raw_line in (
-            self.capture.stream_packets()
-        ):
+        for raw_line in self.capture.stream_packets():
 
-            packet = self.parser.parse(
-                raw_line
-            )
+            packet = self.parser.parse(raw_line)
 
             if packet is None:
                 continue
@@ -99,9 +96,7 @@ class IDSPipeline:
             # Update source traffic window
             # -------------------------------------
 
-            self.traffic_window.add_packet(
-                packet
-            )
+            self.traffic_window.add_packet(packet)
 
             # -------------------------------------
             # Expire inactive flows
@@ -126,21 +121,31 @@ class IDSPipeline:
                 )
             )
 
-            print(
-                f"[FLOW] "
-                f"{flow.src_ip}:{flow.src_port}->"
-                f"{flow.dst_ip}:{flow.dst_port} "
-                f"{flow.protocol} | "
-                f"packets={flow.packet_count} "
-                f"bytes={flow.byte_count}"
-            )
+            # -------------------------------------
+            # Debug flow output
+            # -------------------------------------
+
+            #print(
+             #   f"[FLOW] "
+              #  f"{flow.src_ip}:{flow.src_port}->"
+               # f"{flow.dst_ip}:{flow.dst_port} "
+                #f"{flow.protocol} | "
+                #f"packets={flow.packet_count} "
+                #f"bytes={flow.byte_count}"
+            #)
 
             # -------------------------------------
             # Periodic detection snapshot
+            #
+            # IMPORTANT:
+            # Use wall-clock time for scheduling
+            # live IDS detection.
             # -------------------------------------
 
+            current_time = datetime.now()
+
             if self.scheduler.should_run(
-                packet.timestamp
+                current_time
             ):
 
                 print(
@@ -162,7 +167,7 @@ class IDSPipeline:
 
     def _run_detection_snapshot(
         self,
-        timestamp,
+        timestamp: datetime,
     ) -> None:
 
         active_flows = (
@@ -182,33 +187,17 @@ class IDSPipeline:
 
             flow_features = (
                 self.flow_feature_extractor
-                .extract_flow_features(
-                    flow
-                )
+                .extract_flow_features(flow)
             )
 
             stats = (
                 self.traffic_window
-                .get_stats(
-                    flow.src_ip
-                )
+                .get_stats(flow.src_ip)
             )
 
             window_features = (
                 self.window_feature_extractor
-                .extract(
-                    stats
-                )
-            )
-
-            print(
-                f"[DEBUG] {flow.src_ip} | "
-                f"packets="
-                f"{window_features.packet_count} | "
-                f"pps="
-                f"{window_features.packets_per_second:.2f} | "
-                f"icmp_ratio="
-                f"{window_features.icmp_ratio:.2f}"
+                .extract(stats)
             )
 
             feature_vector = (
@@ -224,13 +213,23 @@ class IDSPipeline:
                 timestamp,
             )
 
+            print(
+                f"[DEBUG] "
+                f"{flow.src_ip} | "
+                f"packets="
+                f"{window_features.packet_count} | "
+                f"pps="
+                f"{window_features.packets_per_second:.2f} | "
+                f"icmp_ratio="
+                f"{window_features.icmp_ratio:.2f}"
+            )
+
         # -----------------------------------------
-        # Run detection engine
+        # Run detection
         # -----------------------------------------
 
         results = (
-            self.detection_engine
-            .detect(
+            self.detection_engine.detect(
                 self.detection_context
             )
         )
@@ -254,18 +253,14 @@ class IDSPipeline:
             )
 
             alert = (
-                self.alert_manager
-                .process(
+                self.alert_manager.process(
                     result,
                     timestamp,
                 )
             )
 
             if alert is not None:
-
-                self._print_alert(
-                    alert
-                )
+                self._print_alert(alert)
 
     @staticmethod
     def _handle_expired_flow(flow) -> None:
@@ -300,7 +295,6 @@ class IDSPipeline:
         )
 
         for reason in alert.reasons:
-
             print(
                 f"  - {reason}"
             )

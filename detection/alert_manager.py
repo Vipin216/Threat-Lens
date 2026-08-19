@@ -14,49 +14,25 @@ class AlertManager:
             SecurityAlert,
         ] = {}
 
-    def process(self,result: DetectionResult,timestamp: datetime,) -> SecurityAlert | None:
-
+    def process(self, result: DetectionResult, timestamp: datetime) -> SecurityAlert | None:
         if not result.detected:
             return None
 
-        key = (
-            result.source_ip,
-            self._get_detection_type(result),
-        )
-
+        key = (result.source_ip, self._get_detection_type(result))
         existing_alert = self._alerts.get(key)
 
-       
         if existing_alert is None:
-            alert = self._create_alert(
-                result,
-                timestamp,
-            )
-
+            alert = self._create_alert(result, timestamp)
             self._alerts[key] = alert
-
             return alert
 
-        
-        
         if existing_alert.status == "RESOLVED":
-            alert = self._create_alert(
-                result,
-                timestamp,
-            )
-
+            alert = self._create_alert(result, timestamp)
             self._alerts[key] = alert
-
             return alert
 
-       
-        self._update_alert(
-            existing_alert,
-            result,
-            timestamp,
-        )
-
-        return existing_alert
+        self._update_alert(existing_alert, result, timestamp)
+        return None
 
     def resolve_stale_alerts(self,current_time: datetime,) -> None:
 

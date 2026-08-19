@@ -192,6 +192,7 @@ class DetectionEngine:
         detected = score > 0
 
 
+
         return DetectionResult(
             detected=detected,
             severity=severity,

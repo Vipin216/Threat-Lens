@@ -56,6 +56,8 @@ def main():
     print(f"  ACK: {flow.ack_count}")
     print(f"  Packets/sec: {flow.packets_per_second:.2f}")
 
-
+    active_flows = manager.get_active_flows()
+    assert len(active_flows) == 1
+    
 if __name__ == "__main__":
     main()

@@ -15,7 +15,7 @@ class Flow:
     start_time:datetime
     last_seen:datetime
 
-    packet_count= int=0
+    packet_count: int=0
     byte_count:int=0
     syn_count:int=0
     ack_count:int=0

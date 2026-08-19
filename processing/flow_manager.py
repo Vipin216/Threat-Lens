@@ -50,3 +50,8 @@ class FlowManager:
                 del self.flows[key]
 
         return expired
+
+
+
+    def get_active_flows(self) -> list[Flow]:
+        return list(self.flows.values())

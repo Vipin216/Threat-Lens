@@ -53,23 +53,25 @@ class WindowFeatureExtractor:
         flows_per_second=(stats.flow_count/seconds)
         ports_per_second=(stats.unique_destination_ports/seconds)
         ips_per_second=(stats.unique_destination_ips/seconds)
-        syns_per_second = (stats.syn_count / self.window_seconds)
+        syns_per_second = (stats.syn_count / seconds)
 
 
 
         if stats.packet_count>0:
-            if stats.packet_count > 0:
-                icmp_ratio = (stats.icmp_packet_count /stats.packet_count)
-            else:
-                icmp_ratio = 0.0
+            
+            icmp_ratio = (stats.icmp_packet_count /stats.packet_count)
+            syn_ratio=0.0
+            ack_ratio=0.0
+            rst_ratio=0.0
+
+        else:
+            icmp_ratio = 0.0
 
             syn_ratio = stats.syn_count / stats.packet_count
             ack_ratio = stats.ack_count / stats.packet_count
             rst_ratio = stats.rst_count/stats.packet_count
-        else:
-            syn_ratio=0.0
-            ack_ratio=0.0
-            rst_ratio=0.0
+        
+            
 
 
 
@@ -89,6 +91,7 @@ class WindowFeatureExtractor:
             icmp_ratio=icmp_ratio,
             ports_per_second=ports_per_second,
             ips_per_second=ips_per_second,
+            syns_per_second=syns_per_second,
             syn_ratio=syn_ratio,
             ack_ratio=ack_ratio,
             rst_ratio=rst_ratio,

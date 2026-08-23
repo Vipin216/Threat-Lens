@@ -12,6 +12,8 @@ from detection.detection_engine import DetectionEngine
 from detection.detection_scheduler import DetectionScheduler
 from detection.alert_manager import AlertManager
 
+from ai.airia_client import AiriaClient
+
 
 class IDSPipeline:
 
@@ -56,6 +58,9 @@ class IDSPipeline:
         self.alert_manager = AlertManager(
             stale_after_seconds=60
         )
+
+        # Airia AI enrichment client
+        self.airia_client = AiriaClient()
 
     def run(self) -> None:
 
@@ -205,6 +210,9 @@ class IDSPipeline:
                 f"detected={result.detected}"
             )
 
+            if not result.detected:
+                continue
+
             alert = (
                 self.alert_manager.process(
                     result,
@@ -212,8 +220,286 @@ class IDSPipeline:
                 )
             )
 
-            if alert is not None:
-                self._print_alert(alert)
+            if alert is None:
+                continue
+
+            self._print_alert(alert)
+
+            # Get the latest feature vector that caused
+            # this source to be detected.
+            source_vectors = (
+                self.detection_context
+                .get_source_vectors(
+                    result.source_ip
+                )
+            )
+
+            if not source_vectors:
+                print(
+                    "[AIRIA] No feature vector "
+                    "available for enrichment"
+                )
+                continue
+
+            latest_vector = source_vectors[-1]
+
+            self._enrich_with_airia(
+                alert,
+                result,
+                latest_vector,
+            )
+
+    def _enrich_with_airia(
+        self,
+        alert,
+        result,
+        feature_vector,
+    ) -> None:
+
+        print(
+            "\n[AIRIA] Sending alert for "
+            "AI enrichment..."
+        )
+
+        airia_input = {
+
+            # ==============================
+            # Network identity
+            # ==============================
+
+            "source_ip": (
+                feature_vector.source_ip
+            ),
+
+            # ==============================
+            # Detection result
+            # ==============================
+
+            "detected": result.detected,
+
+            "risk_score": result.score,
+
+            "severity": result.severity,
+
+            "detection_type": (
+                alert.detection_type
+            ),
+
+            "occurrence_count": (
+                alert.occurrence_count
+            ),
+
+            "detections": alert.reasons,
+
+            # ==============================
+            # Flow features
+            # ==============================
+
+            "flow_packet_count": (
+                feature_vector.flow_packet_count
+            ),
+
+            "flow_byte_count": (
+                feature_vector.flow_byte_count
+            ),
+
+            "flow_duration": (
+                feature_vector.flow_duration
+            ),
+
+            "flow_packets_per_second": (
+                feature_vector.flow_packets_per_second
+            ),
+
+            "flow_bytes_per_second": (
+                feature_vector.flow_bytes_per_second
+            ),
+
+            # ==============================
+            # TCP behavior
+            # ==============================
+
+            "syns_per_second": (
+                feature_vector.syns_per_second
+            ),
+
+            "flow_syn_ratio": (
+                feature_vector.flow_syn_ratio
+            ),
+
+            "flow_ack_ratio": (
+                feature_vector.flow_ack_ratio
+            ),
+
+            "flow_rst_ratio": (
+                feature_vector.flow_rst_ratio
+            ),
+
+            "flow_fin_ratio": (
+                feature_vector.flow_fin_ratio
+            ),
+
+            # ==============================
+            # Window statistics
+            # ==============================
+
+            "window_packet_count": (
+                feature_vector.window_packet_count
+            ),
+
+            "window_byte_count": (
+                feature_vector.window_byte_count
+            ),
+
+            "window_flow_count": (
+                feature_vector.window_flow_count
+            ),
+
+            "window_packets_per_second": (
+                feature_vector.window_packets_per_second
+            ),
+
+            "window_bytes_per_second": (
+                feature_vector.window_bytes_per_second
+            ),
+
+            "window_flows_per_second": (
+                feature_vector.window_flows_per_second
+            ),
+
+            # ==============================
+            # Network scanning indicators
+            # ==============================
+
+            "unique_destination_ips": (
+                feature_vector.unique_destination_ips
+            ),
+
+            "unique_destination_ports": (
+                feature_vector.unique_destination_ports
+            ),
+
+            "sensitive_port_count": (
+                feature_vector.sensitive_port_count
+            ),
+
+            "ports_per_second": (
+                feature_vector.ports_per_second
+            ),
+
+            "ips_per_second": (
+                feature_vector.ips_per_second
+            ),
+
+            # ==============================
+            # ICMP behavior
+            # ==============================
+
+            "window_icmp_packet_count": (
+                feature_vector.window_icmp_packet_count
+            ),
+
+            "window_icmp_request_count": (
+                feature_vector.window_icmp_request_count
+            ),
+
+            "window_icmp_reply_count": (
+                feature_vector.window_icmp_reply_count
+            ),
+
+            "window_icmp_ratio": (
+                feature_vector.window_icmp_ratio
+            ),
+
+            "window_icmp_request_ratio": (
+                feature_vector.window_icmp_request_ratio
+            ),
+
+            # ==============================
+            # TCP window behavior
+            # ==============================
+
+            "window_tcp_packet_count": (
+                feature_vector.window_tcp_packet_count
+            ),
+
+            "window_syn_ratio": (
+                feature_vector.window_syn_ratio
+            ),
+
+            "window_ack_ratio": (
+                feature_vector.window_ack_ratio
+            ),
+
+            "window_rst_ratio": (
+                feature_vector.window_rst_ratio
+            ),
+        }
+
+        try:
+
+            enrichment = (
+                self.airia_client.analyze(
+                    airia_input
+                )
+            )
+
+            print(
+                "\n[AIRIA] AI enrichment received"
+            )
+
+            print(
+                f"  Attack Type : "
+                f"{enrichment.get('attack_type')}"
+            )
+
+            print(
+                f"  Severity    : "
+                f"{enrichment.get('severity')}"
+            )
+
+            print(
+                f"  Confidence  : "
+                f"{enrichment.get('confidence')}"
+            )
+
+            print(
+                f"  MITRE ID    : "
+                f"{enrichment.get('mitre_attack_id')}"
+            )
+
+            print(
+                f"  MITRE Name  : "
+                f"{enrichment.get('mitre_attack_name')}"
+            )
+
+            print(
+                f"  Summary     : "
+                f"{enrichment.get('summary')}"
+            )
+
+            print(
+                "\n  Recommendations:"
+            )
+
+            for recommendation in (
+                enrichment.get(
+                    "recommendations",
+                    [],
+                )
+            ):
+                print(
+                    f"    - {recommendation}"
+                )
+
+        except Exception as exc:
+
+            # Airia failure must NEVER crash
+            # the core IDS detection pipeline.
+            print(
+                f"[AIRIA] Enrichment failed: "
+                f"{exc}"
+            )
 
     @staticmethod
     def _handle_expired_flow(flow) -> None:

@@ -99,33 +99,20 @@ class DetectionEngine:
         # 2. SENSITIVE PORT TARGETING
         # =====================================================
 
-        # Sensitive ports alone should NOT automatically
-        # indicate an attack.
-        #
-        # Only score this when there is stronger evidence
-        # of scanning/SYN activity.
-        if (
-            latest.sensitive_port_count > 0
-            and (
-                latest.window_syn_ratio >= 0.7
-                or latest.unique_destination_ports >= 5
-            )
-        ):
-            score += 20
-            reasons.append(
-                f"Traffic to {latest.sensitive_port_count} "
-                "sensitive port(s)"
-            )
+        # Sensitive ports should strengthen an already suspicious
+        # scanning pattern, but should not independently trigger
+        # an alert from a single connection attempt.
 
-        if (
-            latest.sensitive_port_count >= 2
-            and latest.window_syn_ratio >= 0.7
-        ):
+        if (latest.sensitive_port_count > 0 and latest.unique_destination_ports >= 5 and latest.window_syn_ratio >= 0.7):
             score += 20
-            reasons.append(
-                "Multiple sensitive services targeted"
-            )
+            reasons.append(f"Traffic to {latest.sensitive_port_count} ""sensitive port(s)")
 
+        if (latest.sensitive_port_count >= 2 and latest.window_syn_ratio >= 0.7):
+            score += 20
+            reasons.append("Multiple sensitive services targeted")
+
+
+            
         # =====================================================
         # 3. HIGH TRAFFIC VOLUME
         # =====================================================

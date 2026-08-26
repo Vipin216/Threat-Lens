@@ -13,13 +13,17 @@ from detection.detection_scheduler import DetectionScheduler
 from detection.alert_manager import AlertManager
 
 from ai.airia_client import AiriaClient
+from integrations.wazuh_logger import WazuhLogger
 
 
 class IDSPipeline:
 
     def __init__(self, interface: str):
+
         self.capture = TsharkCapture(interface)
+
         self.parser = PacketParser()
+
         self.flow_manager = FlowManager()
 
         self.traffic_window = TrafficWindow(
@@ -59,8 +63,17 @@ class IDSPipeline:
             stale_after_seconds=60
         )
 
+        # ==================================
         # Airia AI enrichment client
+        # ==================================
+
         self.airia_client = AiriaClient()
+
+        # ==================================
+        # Wazuh security event logger
+        # ==================================
+
+        self.wazuh_logger = WazuhLogger()
 
     def run(self) -> None:
 
@@ -80,13 +93,25 @@ class IDSPipeline:
             if packet is None:
                 continue
 
+            # ==================================
+            # Add packet to traffic window
+            # ==================================
+
             self.traffic_window.add_packet(
                 packet
             )
 
+            # ==================================
+            # Process packet into flows
+            # ==================================
+
             self.flow_manager.process_packet(
                 packet
             )
+
+            # ==================================
+            # Periodic detection snapshot
+            # ==================================
 
             if self.scheduler.should_run():
 
@@ -99,6 +124,10 @@ class IDSPipeline:
                     packet.timestamp
                 )
 
+            # ==================================
+            # Expire inactive flows
+            # ==================================
+
             expired_flows = (
                 self.flow_manager.expire_flows(
                     packet.timestamp
@@ -106,9 +135,14 @@ class IDSPipeline:
             )
 
             for flow in expired_flows:
+
                 self._handle_expired_flow(
                     flow
                 )
+
+            # ==================================
+            # Resolve stale alerts
+            # ==================================
 
             self.alert_manager.resolve_stale_alerts(
                 packet.timestamp
@@ -131,6 +165,10 @@ class IDSPipeline:
 
         for source_ip in source_ips:
 
+            # ==================================
+            # Window statistics
+            # ==================================
+
             stats = (
                 self.traffic_window
                 .get_stats(source_ip)
@@ -141,22 +179,38 @@ class IDSPipeline:
                 .extract(stats)
             )
 
+            # ==================================
+            # Find active flows belonging
+            # to this source
+            # ==================================
+
             active_flows = [
+
                 flow
+
                 for flow in (
                     self.flow_manager
                     .get_active_flows()
                 )
+
                 if flow.src_ip == source_ip
             ]
 
             if not active_flows:
                 continue
 
+            # ==================================
+            # Select latest active flow
+            # ==================================
+
             latest_flow = max(
                 active_flows,
                 key=lambda flow: flow.last_seen,
             )
+
+            # ==================================
+            # Extract flow features
+            # ==================================
 
             flow_features = (
                 self.flow_feature_extractor
@@ -178,6 +232,10 @@ class IDSPipeline:
                 f"{window_features.syns_per_second:.2f}"
             )
 
+            # ==================================
+            # Build feature vector
+            # ==================================
+
             feature_vector = (
                 self.feature_vector_builder.build(
                     flow_features,
@@ -185,10 +243,18 @@ class IDSPipeline:
                 )
             )
 
+            # ==================================
+            # Add vector to detection context
+            # ==================================
+
             self.detection_context.add(
                 feature_vector,
                 timestamp,
             )
+
+        # ==================================
+        # Run detection engine
+        # ==================================
 
         results = (
             self.detection_engine.detect(
@@ -210,8 +276,16 @@ class IDSPipeline:
                 f"detected={result.detected}"
             )
 
+            # ==================================
+            # Ignore non-detections
+            # ==================================
+
             if not result.detected:
                 continue
+
+            # ==================================
+            # Create/update security alert
+            # ==================================
 
             alert = (
                 self.alert_manager.process(
@@ -223,10 +297,17 @@ class IDSPipeline:
             if alert is None:
                 continue
 
+            # ==================================
+            # Print alert
+            # ==================================
+
             self._print_alert(alert)
 
-            # Get the latest feature vector that caused
-            # this source to be detected.
+            # ==================================
+            # Get latest feature vector
+            # for this source
+            # ==================================
+
             source_vectors = (
                 self.detection_context
                 .get_source_vectors(
@@ -235,13 +316,19 @@ class IDSPipeline:
             )
 
             if not source_vectors:
+
                 print(
                     "[AIRIA] No feature vector "
                     "available for enrichment"
                 )
+
                 continue
 
             latest_vector = source_vectors[-1]
+
+            # ==================================
+            # Airia enrichment
+            # ==================================
 
             self._enrich_with_airia(
                 alert,
@@ -260,6 +347,10 @@ class IDSPipeline:
             "\n[AIRIA] Sending alert for "
             "AI enrichment..."
         )
+
+        # ==================================
+        # Prepare Airia input
+        # ==================================
 
         airia_input = {
 
@@ -438,6 +529,11 @@ class IDSPipeline:
 
         try:
 
+            # ==================================
+            # Step 1
+            # Send alert to Airia
+            # ==================================
+
             enrichment = (
                 self.airia_client.analyze(
                     airia_input
@@ -488,16 +584,41 @@ class IDSPipeline:
                     [],
                 )
             ):
+
                 print(
                     f"    - {recommendation}"
                 )
 
+            # ==================================
+            # Step 2
+            # Write enriched event for Wazuh
+            # ==================================
+
+            print(
+                "\n[WAZUH] Writing enriched "
+                "security event..."
+            )
+
+            self.wazuh_logger.log_alert(
+                alert=alert,
+                result=result,
+                feature_vector=feature_vector,
+                airia_result=enrichment,
+            )
+
+            print(
+                "[WAZUH] Security event written"
+            )
+
         except Exception as exc:
 
-            # Airia failure must NEVER crash
-            # the core IDS detection pipeline.
+            # ==================================
+            # Integration failures must never
+            # crash the core IDS pipeline.
+            # ==================================
+
             print(
-                f"[AIRIA] Enrichment failed: "
+                f"[AIRIA/WAZUH] Integration failed: "
                 f"{exc}"
             )
 
